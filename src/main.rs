@@ -2,6 +2,7 @@ mod chunk;
 mod opcode;
 mod values;
 mod instructions;
+mod vm;
 
 fn main() {
     let mut chunk = chunk::Chunk::new();
