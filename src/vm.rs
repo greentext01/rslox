@@ -1,20 +1,20 @@
-use num_traits::{FromPrimitive, ToPrimitive};
+use num_traits::{FromPrimitive};
 
-use crate::{chunk::Chunk, opcode::OpCode, values::Value};
+use crate::{chunk::Chunk, opcode::OpCode, instructions::Instructions};
 
-enum InterpretResult {
+pub enum InterpretResult {
     InterpretOk,
     InterpretCompileError,
     InterpretRuntimeError,
 }
 
-struct VM {
+pub struct VM {
     chunk: Chunk,
     ip: u8,
 }
 
 impl VM {
-    fn new(chunk: Chunk) -> VM {
+    pub fn new(chunk: Chunk) -> VM {
         VM { chunk, ip: 0 }
     }
 
@@ -27,31 +27,35 @@ impl VM {
         return instruction;
     }
 
-    fn read_constant(&mut self) -> Result<u8, &'static str> {
+    fn read_constant(&mut self) -> Result<f64, &'static str> {
         let constant_ref = self.read_byte()?;
-        match self.chunk.instructions.get(constant_ref as usize) {
+        match self.chunk.constants.get(constant_ref as usize) {
             None => Err("Invalid constant"),
             Some(c) => Ok(*c),
         }
     }
 
-    fn run(&mut self) -> InterpretResult {
+    pub fn run(&mut self) -> InterpretResult {
         loop {
+            if cfg!(debug_assertions) {
+                self.chunk.disassemble_instruction(&(self.ip as usize));
+            }
+
             let instruction = match self.read_byte() {
-                Err(_) => return InterpretResult::InterpretRuntimeError,
+                Err(_) => return InterpretResult::InterpretCompileError,
                 Ok(instruction) => instruction,
             };
+
             match FromPrimitive::from_u8(instruction) {
-                Some(OpCode::OpReturn) => return InterpretResult::InterpretOk,
+                Some(OpCode::OpReturn) => break,
                 Some(OpCode::OpConstant) => {
                     let constant = match self.read_constant() {
                         Ok(constant) => constant,
-                        Err(_) => return InterpretResult::InterpretRuntimeError,
+                        Err(_) => return InterpretResult::InterpretCompileError,
                     };
-                    println!("{}", constant);
-                    return InterpretResult::InterpretOk;
+                    println!("Constant: {}", constant);
                 }
-                None => {}
+                None => break
             }
         }
 

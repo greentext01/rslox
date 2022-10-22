@@ -29,11 +29,13 @@ impl Chunk {
         self.constants.len() - 1
     }
 
+    #[allow(dead_code)]
     pub fn disassemble(&self, name: &str) {
         println!("== {} ==", name);
         let mut offset = 0;
         while offset < self.instructions.len() {
             offset = self.disassemble_instruction(&offset);
         }
+        println!("========");
     }
 }
