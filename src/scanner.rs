@@ -1,3 +1,5 @@
+use trie_rs::TrieBuilder;
+
 #[derive(PartialEq, Debug)]
 #[allow(dead_code)]
 pub enum TokenType {
@@ -68,6 +70,8 @@ pub struct Scanner<'s> {
 
 impl<'s> Scanner<'s> {
     pub fn new(source: &'s str) -> Scanner {
+        let mut keywords = TrieBuilder::new();
+        keywords.push("");
         Scanner {
             source,
             current: 0,
@@ -155,24 +159,40 @@ impl<'s> Scanner<'s> {
             Some('=') => self.ternary_match('=', TokenType::EqualEqual, TokenType::Equal),
             Some('<') => self.ternary_match('=', TokenType::GreaterEqual, TokenType::Greater),
             Some('>') => self.ternary_match('=', TokenType::LessEqual, TokenType::Less),
+            Some(c) if c.is_numeric() => self.number(),
             Some(_) => self.error_token("Unexpected character."),
             None => self.make_token(TokenType::EOF),
         }
     }
 
+    fn number(&mut self) -> Token {
+        while let Some(c) = self.advance() {
+            if !c.is_numeric() {
+                break;
+            }
+        }
+
+        let unparsed = String::from(&self.source[self.start..self.current - 1]);
+
+        self.make_token(TokenType::Number(unparsed.parse::<f64>().unwrap()))
+    }
+
     fn string(&mut self) -> Token {
-        let mut out = String::new();
         loop {
             let current = self.advance();
             match current {
                 Some('"') => break,
                 Some('\n') => self.line += 1,
-                Some(c) => out.push(c),
+                Some(_) => {
+                    self.advance();
+                }
                 None => return self.error_token("Unterminated string."),
             }
         }
 
-        self.make_token(TokenType::String(out))
+        self.make_token(TokenType::String(String::from(
+            &self.source[self.start..self.current],
+        )))
     }
 
     fn ternary_match(
