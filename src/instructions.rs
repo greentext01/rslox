@@ -1,8 +1,6 @@
-use std::io::Write;
-
 use num_traits::FromPrimitive;
 
-use crate::{chunk::Chunk, opcode::OpCode};
+use crate::{chunk::Chunk, opcode::OpCode, util};
 
 pub trait Instructions {
     fn simple_instruction(&self, name: &str, offset: &usize) -> usize;
@@ -41,11 +39,16 @@ impl Instructions for Chunk {
             print!("{line:0>4} ", line=self.lines[*offset])
         }
 
-        std::io::stdout().flush().expect("Couldn't flush stdout.");
+        util::flush_stdout();
         let instruction = self.instructions[*offset];
         match FromPrimitive::from_u8(instruction) {
             Some(OpCode::OpReturn) => self.simple_instruction("return", offset),
             Some(OpCode::OpConstant) => self.constant_instruction("constant", offset),
+            Some(OpCode::OpNegate) => self.simple_instruction("negate", offset),
+            Some(OpCode::OpAdd) => self.simple_instruction("add", offset),
+            Some(OpCode::OpSubstract) => self.simple_instruction("substract", offset),
+            Some(OpCode::OpMultiply) => self.simple_instruction("multiply", offset),
+            Some(OpCode::OpDivide) => self.simple_instruction("divide", offset),
             None => self.invalid_instruction(&instruction, offset),
         }
     }
