@@ -27,9 +27,9 @@ pub enum TokenType {
     LessEqual,
 
     // Literals.
-    Identifier(String),
-    String(String),
-    Number(f64),
+    Identifier,
+    String,
+    Number,
 
     // Keywords.
     And,
@@ -160,8 +160,36 @@ impl<'s> Scanner<'s> {
             Some('<') => self.ternary_match('=', TokenType::GreaterEqual, TokenType::Greater),
             Some('>') => self.ternary_match('=', TokenType::LessEqual, TokenType::Less),
             Some(c) if c.is_numeric() => self.number(),
+            Some(c) if c.is_alphabetic() => self.keyword(),
             Some(_) => self.error_token("Unexpected character."),
             None => self.make_token(TokenType::EOF),
+        }
+    }
+
+    fn keyword(&mut self) -> Token {
+        let c = self.peek();
+        let tt = match c {
+            Some('a') => self.check_keyword("nd", TokenType::And),
+            Some('c') => self.check_keyword("lass", TokenType::Class),
+            Some('e') => self.check_keyword("lse", TokenType::Else),
+            Some('i') => self.check_keyword("f", TokenType::If),
+            Some('n') => self.check_keyword("il", TokenType::Nil),
+            Some('o') => self.check_keyword("r", TokenType::Or),
+            Some('p') => self.check_keyword("rint", TokenType::Print),
+            Some('r') => self.check_keyword("eturn", TokenType::Return),
+            Some('s') => self.check_keyword("uper", TokenType::Super),
+            Some('v') => self.check_keyword("ar", TokenType::Var),
+            Some('w') => self.check_keyword("hile", TokenType::While),
+            _ => TokenType::Identifier,
+        };
+        self.make_token(tt)
+    }
+
+    fn check_keyword(&mut self, rest: &str, tt: TokenType) -> TokenType {
+        if &self.source[self.start..rest.len() - 1] == rest {
+            tt
+        } else {
+            TokenType::Identifier
         }
     }
 
@@ -174,7 +202,7 @@ impl<'s> Scanner<'s> {
 
         let unparsed = String::from(&self.source[self.start..self.current - 1]);
 
-        self.make_token(TokenType::Number(unparsed.parse::<f64>().unwrap()))
+        self.make_token(TokenType::Number)
     }
 
     fn string(&mut self) -> Token {
@@ -190,9 +218,7 @@ impl<'s> Scanner<'s> {
             }
         }
 
-        self.make_token(TokenType::String(String::from(
-            &self.source[self.start..self.current],
-        )))
+        self.make_token(TokenType::String)
     }
 
     fn ternary_match(
