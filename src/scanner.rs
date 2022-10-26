@@ -167,26 +167,58 @@ impl<'s> Scanner<'s> {
     }
 
     fn keyword(&mut self) -> Token {
+        macro_rules! check_keywords {
+            [$($next:literal, $expected: literal => $tt: expr),+] => {
+                if self.current - self.start > 1 {
+                    match self.source.chars().nth(self.start + 1) {
+                        $(
+                            Some($next) => self.check_keyword($expected, $tt, 2),
+                        )*
+                        _ => TokenType::Identifier,
+                    }
+                } else {
+                    TokenType::Identifier
+                }
+            };
+        }
+
         let c = self.peek();
         let tt = match c {
-            Some('a') => self.check_keyword("nd", TokenType::And),
-            Some('c') => self.check_keyword("lass", TokenType::Class),
-            Some('e') => self.check_keyword("lse", TokenType::Else),
-            Some('i') => self.check_keyword("f", TokenType::If),
-            Some('n') => self.check_keyword("il", TokenType::Nil),
-            Some('o') => self.check_keyword("r", TokenType::Or),
-            Some('p') => self.check_keyword("rint", TokenType::Print),
-            Some('r') => self.check_keyword("eturn", TokenType::Return),
-            Some('s') => self.check_keyword("uper", TokenType::Super),
-            Some('v') => self.check_keyword("ar", TokenType::Var),
-            Some('w') => self.check_keyword("hile", TokenType::While),
+            Some('a') => self.check_keyword("nd", TokenType::And, 1),
+            Some('c') => self.check_keyword("lass", TokenType::Class, 1),
+            Some('e') => self.check_keyword("lse", TokenType::Else, 1),
+            Some('i') => self.check_keyword("f", TokenType::If, 1),
+            Some('n') => self.check_keyword("il", TokenType::Nil, 1),
+            Some('o') => self.check_keyword("r", TokenType::Or, 1),
+            Some('p') => self.check_keyword("rint", TokenType::Print, 1),
+            Some('r') => self.check_keyword("eturn", TokenType::Return, 1),
+            Some('s') => self.check_keyword("uper", TokenType::Super, 1),
+            Some('v') => self.check_keyword("ar", TokenType::Var, 1),
+            Some('w') => self.check_keyword("hile", TokenType::While, 1),
+            Some('f') => check_keywords![
+                'a', "lse" => TokenType::False,
+                'o', "r" => TokenType::For,
+                'u', "n" => TokenType::Fun
+            ],
+            Some('t') => check_keywords![
+                'a', "lse" => TokenType::False,
+                'o', "r" => TokenType::For,
+                'u', "n" => TokenType::Fun
+            ],
             _ => TokenType::Identifier,
         };
         self.make_token(tt)
     }
 
-    fn check_keyword(&mut self, rest: &str, tt: TokenType) -> TokenType {
-        if &self.source[self.start..rest.len() - 1] == rest {
+    fn check_keyword(
+        &mut self,
+        rest: &str,
+        tt: TokenType,
+        already_checked_len: usize,
+    ) -> TokenType {
+        let scrutinee =
+            &self.source[self.start + already_checked_len..self.current + rest.len() - 1];
+        if scrutinee == rest {
             tt
         } else {
             TokenType::Identifier
@@ -194,13 +226,12 @@ impl<'s> Scanner<'s> {
     }
 
     fn number(&mut self) -> Token {
-        while let Some(c) = self.advance() {
+        while let Some(c) = self.peek() {
             if !c.is_numeric() {
                 break;
             }
+            self.advance();
         }
-
-        let unparsed = String::from(&self.source[self.start..self.current - 1]);
 
         self.make_token(TokenType::Number)
     }
