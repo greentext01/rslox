@@ -159,8 +159,8 @@ impl<'s> Scanner<'s> {
             Some('=') => self.ternary_match('=', TokenType::EqualEqual, TokenType::Equal),
             Some('<') => self.ternary_match('=', TokenType::GreaterEqual, TokenType::Greater),
             Some('>') => self.ternary_match('=', TokenType::LessEqual, TokenType::Less),
-            Some(c) if c.is_numeric() => self.number(),
             Some(c) if c.is_alphabetic() => self.keyword(),
+            Some(c) if c.is_numeric() => self.number(),
             Some(_) => self.error_token("Unexpected character."),
             None => self.make_token(TokenType::EOF),
         }
@@ -169,8 +169,8 @@ impl<'s> Scanner<'s> {
     fn keyword(&mut self) -> Token {
         macro_rules! check_keywords {
             [$($next:literal, $expected: literal => $tt: expr),+] => {
-                if self.current - self.start > 1 {
-                    match self.source.chars().nth(self.start + 1) {
+                if self.current - self.start >= 1 {
+                    match self.peek() {
                         $(
                             Some($next) => self.check_keyword($expected, $tt, 2),
                         )*
@@ -182,7 +182,8 @@ impl<'s> Scanner<'s> {
             };
         }
 
-        let c = self.peek();
+        let c = self.source.chars().nth(self.start);
+
         let tt = match c {
             Some('a') => self.check_keyword("nd", TokenType::And, 1),
             Some('c') => self.check_keyword("lass", TokenType::Class, 1),

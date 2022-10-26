@@ -26,6 +26,7 @@ fn repl() {
         };
 
         interpret(&line);
+        line.clear();
     }
 }
 
