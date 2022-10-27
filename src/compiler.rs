@@ -1,6 +1,6 @@
 use crate::{
     chunk::Chunk,
-    scanner::{Scanner, TokenType},
+    scanner::{Scanner, TokenType, Token},
     vm,
 };
 
@@ -15,8 +15,8 @@ pub fn interpret(source: &str) -> Result<(), &'static str> {
 struct Compiler<'a> {
     source: &'a str,
     scanner: Scanner<'a>,
-    previous: usize,
-    current: usize,
+    previous: Option<Token>,
+    current: Option<Token>,
 }
 
 impl<'a> Compiler<'a> {
@@ -25,8 +25,8 @@ impl<'a> Compiler<'a> {
         Compiler {
             source,
             scanner,
-            previous: 0,
-            current: 0,
+            previous: None,
+            current: None,
         }
     }
 
@@ -39,7 +39,10 @@ impl<'a> Compiler<'a> {
     fn advance(&mut self) {
         self.previous = self.current;
         loop {
-            self.current = self.scanner.scan_token();
+            self.current = Some(self.scanner.scan_token());
+            if matches!(self.current., Some(TokenType::Error(_))) {
+
+            }
         }
     }
 }
