@@ -61,8 +61,8 @@ pub struct Token {
     pub line: i32,
 }
 
-pub struct Scanner<'s> {
-    source: &'s str,
+pub struct Scanner<'a> {
+    source: &'a str,
     start: usize,
     current: usize,
     line: i32,
@@ -135,12 +135,10 @@ impl<'s> Scanner<'s> {
         }
     }
 
-    fn scan_token(&mut self) -> Token {
+    pub fn scan_token(&mut self) -> Token {
         self.skip_whitespace();
         self.start = self.current;
         let c = self.advance();
-
-        println!("{:?}", c);
 
         match c {
             Some('"') => self.string(),
@@ -166,11 +164,12 @@ impl<'s> Scanner<'s> {
         }
     }
 
-    fn keyword(&mut self) -> Token {
+    fn keyword_type(&mut self) -> TokenType {
         macro_rules! check_keywords {
             [$($next:literal, $expected: literal => $tt: expr),+] => {
-                if self.current - self.start >= 1 {
-                    match self.peek() {
+                if self.current - self.start > 1 {
+                    let current = self.source.chars().nth(self.start + 1);
+                    match current {
                         $(
                             Some($next) => self.check_keyword($expected, $tt, 2),
                         )*
@@ -184,7 +183,7 @@ impl<'s> Scanner<'s> {
 
         let c = self.source.chars().nth(self.start);
 
-        let tt = match c {
+        match c {
             Some('a') => self.check_keyword("nd", TokenType::And, 1),
             Some('c') => self.check_keyword("lass", TokenType::Class, 1),
             Some('e') => self.check_keyword("lse", TokenType::Else, 1),
@@ -207,7 +206,19 @@ impl<'s> Scanner<'s> {
                 'u', "n" => TokenType::Fun
             ],
             _ => TokenType::Identifier,
-        };
+        }
+    }
+
+    fn keyword(&mut self) -> Token {
+        while let Some(c) = self.peek() {
+            if c.is_alphanumeric() {
+                self.advance();
+            } else {
+                break;
+            }
+        }
+
+        let tt = self.keyword_type();
         self.make_token(tt)
     }
 
@@ -217,8 +228,7 @@ impl<'s> Scanner<'s> {
         tt: TokenType,
         already_checked_len: usize,
     ) -> TokenType {
-        let scrutinee =
-            &self.source[self.start + already_checked_len..self.current + rest.len() - 1];
+        let scrutinee = &self.source[self.start + already_checked_len..self.current];
         if scrutinee == rest {
             tt
         } else {
@@ -289,6 +299,19 @@ impl<'s> Scanner<'s> {
             }
             Some(_) => false,
             None => false,
+        }
+    }
+
+    pub fn print_tokens(&self, tokens: &Vec<Token>) {
+        let mut prev_line = -1;
+        for token in tokens {
+            if token.line != prev_line {
+                print!("{:0>4} ", token.line);
+                prev_line = token.line;
+            } else { 
+                print!("   | ");
+            }
+            println!("{:?} '{}'", token.token_type, token.start);
         }
     }
 }

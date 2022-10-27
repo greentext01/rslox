@@ -5,6 +5,8 @@ use std::{
     process::exit,
 };
 
+use chunk::Chunk;
+
 mod chunk;
 mod compiler;
 mod instructions;
@@ -36,7 +38,8 @@ fn run_file(path: &str) {
 }
 
 fn interpret(source: &str) {
-    compiler::compile(source);
+    let chunk = Chunk::new();
+    compiler::interpret(source);
 }
 
 fn main() {
