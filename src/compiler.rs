@@ -1,7 +1,7 @@
 use crate::{
     chunk::Chunk,
-    scanner::{Scanner, TokenType, Token},
-    vm,
+    scanner::{Scanner, Token, TokenType},
+    util, vm,
 };
 
 pub fn interpret(source: &str) -> Result<(), &'static str> {
@@ -15,6 +15,7 @@ pub fn interpret(source: &str) -> Result<(), &'static str> {
 struct Compiler<'a> {
     source: &'a str,
     scanner: Scanner<'a>,
+    had_error: bool,
     previous: Option<Token>,
     current: Option<Token>,
 }
@@ -25,6 +26,7 @@ impl<'a> Compiler<'a> {
         Compiler {
             source,
             scanner,
+            had_error: false,
             previous: None,
             current: None,
         }
@@ -40,9 +42,33 @@ impl<'a> Compiler<'a> {
         self.previous = self.current;
         loop {
             self.current = Some(self.scanner.scan_token());
-            if matches!(self.current., Some(TokenType::Error(_))) {
-
+            match self.current.unwrap().token_type {
+                TokenType::Error(e) => self.error_at_current(""),
+                _ => break,
             }
         }
+    }
+
+    fn error_at_current(&self, message: &str) {
+        if let Some(t) = self.current {
+            self.error_at(t, message);
+        }
+    }
+
+    fn error_at(&self, token: Token, message: &str) {
+        print!("[line {}] Error", token.line);
+
+        match token.token_type {
+            TokenType::Error(m) => print!(": {m}"),
+            TokenType::EOF => print!(" at end"),
+            _ => print!(" at {}", token.start)
+        }
+
+        if !matches!(token.token_type, TokenType::Error(_)) {
+            print!(": {message}")
+        }
+
+        util::flush_stdout();
+        self.had_error = true;
     }
 }
