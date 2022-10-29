@@ -6,9 +6,9 @@ use crate::{
 
 pub fn interpret(source: &str) -> Result<(), &'static str> {
     let mut compiler = Compiler::new(source);
-    let chunk = compiler.compile()?;
+    compiler.compile();
 
-    vm::VM::new(chunk);
+    vm::VM::new(compiler.chunk);
     Ok(())
 }
 
@@ -16,57 +16,82 @@ struct Compiler<'a> {
     source: &'a str,
     scanner: Scanner<'a>,
     had_error: bool,
-    previous: Option<Token>,
-    current: Option<Token>,
+    panic: bool,
+    previous: &'a Option<Token>,
+    current: &'a Option<Token>,
+    pub chunk: Chunk,
 }
 
 impl<'a> Compiler<'a> {
     fn new(source: &'a str) -> Compiler<'a> {
-        let mut scanner = Scanner::new(source);
+        let scanner = Scanner::new(source);
         Compiler {
             source,
             scanner,
+            chunk: Chunk::new(),
+            panic: false,
             had_error: false,
-            previous: None,
-            current: None,
+            previous: &None,
+            current: &None,
         }
     }
 
-    fn compile(&mut self) -> Result<Chunk, &'static str> {
+    fn compile(&mut self) -> bool {
         self.advance();
-        self.expression();
-        self.consume(TokenType::EOF, "Expected end of expression.")
+        //self.expression();
+        //self.consume(TokenType::EOF, "Expected end of expression.");
+        !self.had_error
     }
 
     fn advance(&mut self) {
         self.previous = self.current;
         loop {
-            self.current = Some(self.scanner.scan_token());
+            let token = self.scanner.scan_token();
+            self.current = token;
             match self.current.unwrap().token_type {
-                TokenType::Error(e) => self.error_at_current(""),
+                TokenType::Error => self.error_at_current(""),
                 _ => break,
             }
         }
     }
 
-    fn error_at_current(&self, message: &str) {
+    fn error_at_current(&mut self, message: &str) {
         if let Some(t) = self.current {
             self.error_at(t, message);
         }
     }
 
-    fn error_at(&self, token: Token, message: &str) {
+    fn consume(&mut self, tt: TokenType) {
+        match self.current.unwrap() {
+            tt => self.advance(),
+            _ => {
+                let message = format!(
+                    "Expected {tt:?}, found, {:?}",
+                    self.current.unwrap().token_type
+                );
+
+                self.error_at_current(message.as_str());
+            }
+        }
+    }
+
+    fn error_at(&mut self, token: &Token, message: &str) {
+        if self.panic {
+            return;
+        }
+
+        self.had_error = true;
+        self.panic = true;
+
         print!("[line {}] Error", token.line);
 
         match token.token_type {
-            TokenType::Error(m) => print!(": {m}"),
+            TokenType::Error => print!(": "),
             TokenType::EOF => print!(" at end"),
-            _ => print!(" at {}", token.start)
+            _ => print!(" at {}", token.start),
         }
 
-        if !matches!(token.token_type, TokenType::Error(_)) {
-            print!(": {message}")
-        }
+        print!(": {message}");
 
         util::flush_stdout();
         self.had_error = true;

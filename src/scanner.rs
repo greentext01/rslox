@@ -50,7 +50,7 @@ pub enum TokenType {
     While,
 
     // Not really code.
-    Error(String),
+    Error,
     EOF,
 }
 
@@ -96,7 +96,7 @@ impl<'s> Scanner<'s> {
 
     fn error_token(&self, message: &str) -> Token {
         Token {
-            token_type: TokenType::Error(String::from(message)),
+            token_type: TokenType::Error,
             length: (self.current - self.start) as i32,
             line: self.line,
             start: self.start,
