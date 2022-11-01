@@ -17,8 +17,8 @@ struct Compiler<'a> {
     scanner: Scanner<'a>,
     had_error: bool,
     panic: bool,
-    previous: &'a Option<Token>,
-    current: &'a Option<Token>,
+    previous: Token,
+    current: Token,
     pub chunk: Chunk,
 }
 
@@ -31,24 +31,24 @@ impl<'a> Compiler<'a> {
             chunk: Chunk::new(),
             panic: false,
             had_error: false,
-            previous: &None,
-            current: &None,
+            previous: Token::placeholder(),
+            current: Token::placeholder(),
         }
     }
 
     fn compile(&mut self) -> bool {
         self.advance();
         //self.expression();
-        //self.consume(TokenType::EOF, "Expected end of expression.");
+        self.consume(TokenType::EOF);
         !self.had_error
     }
 
     fn advance(&mut self) {
-        self.previous = self.current;
+        self.previous = self.current.clone();
         loop {
             let token = self.scanner.scan_token();
             self.current = token;
-            match self.current.unwrap().token_type {
+            match self.current.token_type {
                 TokenType::Error => self.error_at_current(""),
                 _ => break,
             }
@@ -56,26 +56,20 @@ impl<'a> Compiler<'a> {
     }
 
     fn error_at_current(&mut self, message: &str) {
-        if let Some(t) = self.current {
-            self.error_at(t, message);
-        }
+        self.error_at(self.current.clone(), message);
     }
 
     fn consume(&mut self, tt: TokenType) {
-        match self.current.unwrap() {
-            tt => self.advance(),
-            _ => {
-                let message = format!(
-                    "Expected {tt:?}, found, {:?}",
-                    self.current.unwrap().token_type
-                );
+        if self.current.token_type == tt {
+            self.advance()
+        } else {
+            let message = format!("Expected {tt:?}, found, {:?}", self.current.token_type);
 
-                self.error_at_current(message.as_str());
-            }
+            self.error_at_current(message.as_str());
         }
     }
 
-    fn error_at(&mut self, token: &Token, message: &str) {
+    fn error_at(&mut self, token: Token, message: &str) {
         if self.panic {
             return;
         }

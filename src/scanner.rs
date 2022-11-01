@@ -1,6 +1,6 @@
 use trie_rs::TrieBuilder;
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 #[allow(dead_code)]
 pub enum TokenType {
     // Single-character tokens.
@@ -54,11 +54,23 @@ pub enum TokenType {
     EOF,
 }
 
+#[derive(Clone, PartialEq)]
 pub struct Token {
     pub token_type: TokenType,
     pub start: usize,
     pub length: i32,
     pub line: i32,
+}
+
+impl Token {
+    pub fn placeholder() -> Token {
+        Token {
+            length: 0,
+            start: 0,
+            line: 0,
+            token_type: TokenType::EOF,
+        }
+    }
 }
 
 pub struct Scanner<'a> {
@@ -80,21 +92,7 @@ impl<'s> Scanner<'s> {
         }
     }
 
-    pub fn scan(&mut self) -> Vec<Token> {
-        let mut tokens: Vec<Token> = Vec::new();
-
-        loop {
-            let token = self.scan_token();
-            if token.token_type == TokenType::EOF {
-                break;
-            }
-            tokens.push(token);
-        }
-
-        tokens
-    }
-
-    fn error_token(&self, message: &str) -> Token {
+    fn error_token(&self) -> Token {
         Token {
             token_type: TokenType::Error,
             length: (self.current - self.start) as i32,
@@ -159,7 +157,7 @@ impl<'s> Scanner<'s> {
             Some('>') => self.ternary_match('=', TokenType::LessEqual, TokenType::Less),
             Some(c) if c.is_alphabetic() => self.keyword(),
             Some(c) if c.is_numeric() => self.number(),
-            Some(_) => self.error_token("Unexpected character."),
+            Some(_) => self.error_token(),
             None => self.make_token(TokenType::EOF),
         }
     }
@@ -256,7 +254,7 @@ impl<'s> Scanner<'s> {
                 Some(_) => {
                     self.advance();
                 }
-                None => return self.error_token("Unterminated string."),
+                None => return self.error_token(),
             }
         }
 
