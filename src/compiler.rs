@@ -1,13 +1,15 @@
+use num_traits::ToPrimitive;
+
 use crate::{
     chunk::Chunk,
     scanner::{Scanner, Token, TokenType},
-    util, vm,
+    util, vm, opcode::OpCode,
 };
 
 pub fn interpret(source: &str) -> Result<(), &'static str> {
     let mut compiler = Compiler::new(source);
     compiler.compile();
-
+    
     vm::VM::new(compiler.chunk);
     Ok(())
 }
@@ -38,9 +40,44 @@ impl<'a> Compiler<'a> {
 
     fn compile(&mut self) -> bool {
         self.advance();
-        //self.expression();
+        self.expression();
         self.consume(TokenType::EOF);
         !self.had_error
+    }
+
+    fn emit_byte(&mut self, byte: u8) {
+        let line = self.previous.line;
+        self.compiling_chunk().add_instruction(&byte, line);
+    }
+
+    fn end_compiler(&mut self) {
+        self.emit_return();
+    }
+    
+
+    fn emit_return(&mut self) {
+        self.emit_byte(OpCode::OpReturn as u8);
+    }
+
+    fn emit_bytes(&mut self, byte1: u8, byte2: u8) {
+        self.emit_byte(byte1);
+        self.emit_byte(byte2);
+    }
+
+    fn expression(&mut self) {
+        
+    }
+
+    fn number(&mut self) {
+        let start = self.previous.start;
+        let len = self.previous.length as usize;
+        let value_str = &self.source[start..start + len];
+        let value: f64 = value_str.parse().unwrap();
+        
+    }
+
+    fn compiling_chunk(&mut self) -> &mut Chunk {
+        &mut self.chunk
     }
 
     fn advance(&mut self) {
