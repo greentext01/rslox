@@ -3,7 +3,7 @@ use num_traits::ToPrimitive;
 use crate::{
     chunk::Chunk,
     scanner::{Scanner, Token, TokenType},
-    util, vm, opcode::OpCode,
+    util, vm, opcode::OpCode, values::Value, precedence,
 };
 
 pub fn interpret(source: &str) -> Result<(), &'static str> {
@@ -12,6 +12,20 @@ pub fn interpret(source: &str) -> Result<(), &'static str> {
     
     vm::VM::new(compiler.chunk);
     Ok(())
+}
+
+enum Precedence {
+    None,
+    Assignment,  // =
+    Or,          // or
+    And,         // and
+    Equality,    // == !=
+    Comparison,  // < > <= >=
+    Term,        // + -
+    Factor,      // * /
+    Unary,       // ! -
+    Call,        // . ()
+    Primary
 }
 
 struct Compiler<'a> {
@@ -50,6 +64,10 @@ impl<'a> Compiler<'a> {
         self.compiling_chunk().add_instruction(&byte, line);
     }
 
+    fn compiling_chunk(&self) -> Chunk {
+        self.chunk
+    }
+
     fn end_compiler(&mut self) {
         self.emit_return();
     }
@@ -65,6 +83,10 @@ impl<'a> Compiler<'a> {
     }
 
     fn expression(&mut self) {
+        self.parse_precedence(Precedence::Assignment);
+    }
+
+    fn parse_precedence(&mut self, precedence: Precedence) {
         
     }
 
@@ -73,14 +95,38 @@ impl<'a> Compiler<'a> {
         let len = self.previous.length as usize;
         let value_str = &self.source[start..start + len];
         let value: f64 = value_str.parse().unwrap();
-        
+        self.emit_constant(&value);
     }
 
-    fn compiling_chunk(&mut self) -> &mut Chunk {
-        &mut self.chunk
+    fn emit_constant(&mut self, value: &Value) -> usize {
+        self.compiling_chunk().add_constant(value)
+    }
+    
+    fn make_constant(&mut self, value: &Value) -> Result<(), &'static str> {
+        let constant = self.emit_constant(value);
+        if constant > u8::MAX as usize {
+            self.error("Too many constants in one chunk.");
+            return Err("Too many constants in one chunk");
+        }
+
+        Ok(())
     }
 
     fn advance(&mut self) {
+        self.previous = self.current.clone();
+        loop {
+            self.current = self.scanner.scan_token();
+            if self.current.token_type != TokenType::Error {
+                break;
+            }
+
+            self.error_at_current(self.current.start.to_string().as_str());
+        }
+    }
+
+    fn grouping(&mut self) {
+        self.expression();
+        self.consume_msg(TokenType::RightParen, "Expected '(' after expression.");
         self.previous = self.current.clone();
         loop {
             let token = self.scanner.scan_token();
@@ -92,17 +138,35 @@ impl<'a> Compiler<'a> {
         }
     }
 
+    fn unary(&mut self) {
+        let op_type = self.current.token_type;
+        self.expression();
+        match op_type {
+            TokenType::Minus => self.emit_byte(OpCode::OpNegate as u8),
+            _ => {
+                // Unreachable. 
+            }
+        }
+    }
+
     fn error_at_current(&mut self, message: &str) {
         self.error_at(self.current.clone(), message);
     }
 
+    fn error(&mut self, message: &str) {
+        self.error_at(self.previous.clone(), message);
+    }
+
     fn consume(&mut self, tt: TokenType) {
+        let default = format!("Expected {tt:?}, found, {:?}", self.current.token_type);
+        self.consume_msg(tt, &default);
+    }
+
+    fn consume_msg(&mut self, tt: TokenType, message: &str) {
         if self.current.token_type == tt {
             self.advance()
         } else {
-            let message = format!("Expected {tt:?}, found, {:?}", self.current.token_type);
-
-            self.error_at_current(message.as_str());
+            self.error_at_current(message);
         }
     }
 
